@@ -20,8 +20,18 @@ class _BudgetScreenState extends State<BudgetScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!initialized) {
-      _initBudgets();
+      _refreshBudgets();
       initialized = true;
+    }
+  }
+
+  Future<void> _refreshBudgets() async {
+    final token = await _initBudgets();
+    if (!mounted) return;
+    if (token != null) {
+      setState(() {
+        _cachedToken = token;
+      });
     }
   }
 
@@ -31,17 +41,17 @@ class _BudgetScreenState extends State<BudgetScreen> {
     return session?.accessToken;
   }
 
-  Future<void> _initBudgets() async {
+  Future<String?> _initBudgets() async {
+    // Extract providers before await; do not use context after await!
     final budgetProvider = Provider.of<BudgetProvider>(context, listen: false);
-    final token = await getAccessToken(Provider.of<AuthProvider>(context, listen: false));
-    if (!mounted) return;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final token = await getAccessToken(authProvider);
     if (token != null) {
       await budgetProvider.fetchBudgets(token);
-      if (!mounted) return;
-      setState(() {
-        _cachedToken = token;
-      });
+      // Instead of setState here, return the token to the caller for state updates
+      return token;
     }
+    return null;
   }
 
   Widget apiErrorOverlay(BudgetProvider budgetProvider) {
@@ -68,7 +78,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: () async {
-                await _initBudgets();
+                await _refreshBudgets();
               },
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -147,8 +157,10 @@ class _BudgetScreenState extends State<BudgetScreen> {
         tooltip: 'Add Budget',
         child: const Icon(Icons.add),
         onPressed: () async {
-          final tokenVal = await getAccessToken(Provider.of<AuthProvider>(context, listen: false));
+          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          final tokenVal = await getAccessToken(authProvider);
           if (!mounted) return;
+          // Avoid using context after any async gap—pass data back, use context only here
           showAddEditDialog(context, null, tokenVal);
           setState(() {
             _cachedToken = tokenVal;
