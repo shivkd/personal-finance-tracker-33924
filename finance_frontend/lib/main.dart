@@ -16,14 +16,21 @@ import 'screens/budget/budget_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'screens/splash_screen.dart';
 
+const bool devMode = false; // Set to true to enable developer/test integration of Supabase demo widget
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // PUBLIC_INTERFACE
-  // Initialize Supabase with safest publishable key (anon/public) for frontend usage.
+  // Initialize Supabase with publishable/anon key (safe for frontend/mobile apps).
+  // DO NOT use service_role or admin keys in mobile/web applications.
+  // Replace <YOUR_SUPABASE_PUBLISHABLE_KEY> below with your project's anon/public key from Supabase dashboard.
+  //
+  // For reference, see: https://supabase.com/docs/guides/getting-started/tutorials/with-flutter
   await Supabase.initialize(
     url: 'https://xihtrwadyqfimillpxff.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhpaHRyd2FkeXFmaW1pbGxweGZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMTE2OTksImV4cCI6MjA2NzY4NzY5OX0.d_AuwOkKczE_j7oQOb37rGmVgX_XTGf2_UbSy8g9OAA',
-    // The above is the public anon key and is safe for frontend.
+    // Best Practice: Never use service_role or admin key in app builds (see Supabase docs).
+    // Only use public/publishable 'anon keys' here for client mobile/web apps.
+    anonKey: '<YOUR_SUPABASE_PUBLISHABLE_KEY>',
   );
   runApp(const FinanceApp());
 }
@@ -72,30 +79,26 @@ class FinanceApp extends StatelessWidget {
         },
         // Example demonstration for fetching finance 'transactions' directly from Supabase table (replaceable or for dev only)
         builder: (context, child) {
-          // This is a developer/test widget for direct Supabase 'transactions' fetch with session-aware auth.
-          // Remove or guard this code for production!
-          bool devMode = false; // set to true to enable the demo below (for dev/test only).
+          // ========================= Developer/Testing Only =========================
+          // Set devMode=true ONLY for developer previews/tests, disable in production!
+          // See comments above for integration, security, and usage directions.
           if (devMode) {
             return FutureBuilder<List<Map<String, dynamic>>>(
-              future: (() async {
-                final client = Supabase.instance.client;
-                final session = client.auth.currentSession;
-                // Only query if we have a session/user.
-                if (session != null && session.user != null) {
-                  final response = await client
+              future: () async {
+                final supabase = Supabase.instance.client;
+                final session = supabase.auth.currentSession;
+                // Only proceed if user is logged in/session is valid.
+                if (session != null) {
+                  final response = await supabase
                       .from('transactions')
-                      .select('*')
+                      .select()
                       .order('date', ascending: false)
                       .limit(10);
-                  // Safely cast and validate each item to Map<String, dynamic>
-                  if (response is List) {
-                    return response
-                        .whereType<Map<String, dynamic>>()
-                        .toList();
-                  }
+                  // The Supabase Dart API returns a List<Map<String, dynamic>>
+                  return List<Map<String, dynamic>>.from(response);
                 }
                 return <Map<String, dynamic>>[];
-              })(),
+              }(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Material(
@@ -105,30 +108,35 @@ class FinanceApp extends StatelessWidget {
                 if (snapshot.hasError) {
                   return Material(
                     child: Center(
-                        child: Text(
-                      "Failed to fetch transactions: ${snapshot.error}",
-                      style: const TextStyle(color: Colors.redAccent),
-                    )),
+                      child: Text(
+                        "Failed to fetch transactions: ${snapshot.error}",
+                        style: const TextStyle(color: Colors.redAccent),
+                      ),
+                    ),
                   );
                 }
                 final transactions = snapshot.data ?? [];
                 return Material(
-                  child: ListView.builder(
+                  child: ListView.separated(
                     itemCount: transactions.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
                     itemBuilder: (ctx, idx) {
                       final tx = transactions[idx];
-                      final amount = tx['amount'];
+                      final double? amount = _castNum(tx['amount']);
+                      final desc = tx['description']?.toString() ?? 'Transaction';
+                      final date = tx['date']?.toString() ?? '';
                       return ListTile(
                         leading: const Icon(Icons.attach_money),
-                        title: Text(tx['description']?.toString() ?? 'Transaction'),
-                        subtitle: Text(tx['date']?.toString() ?? ''),
+                        title: Text(desc),
+                        subtitle: Text(date),
                         trailing: Text(
-                          '\$${(amount is num) ? amount.toStringAsFixed(2) : '0.00'}',
+                          '\$${amount?.toStringAsFixed(2) ?? '0.00'}',
                           style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: (amount is num && amount < 0)
-                                  ? Colors.red
-                                  : Theme.of(context).colorScheme.primary),
+                            fontWeight: FontWeight.bold,
+                            color: (amount != null && amount < 0)
+                                ? Colors.red
+                                : Theme.of(context).colorScheme.primary,
+                          ),
                         ),
                       );
                     },
@@ -137,10 +145,17 @@ class FinanceApp extends StatelessWidget {
               },
             );
           }
-          // Production: just render the child as usual app content.
+          // Production: use app as usual.
           return child ?? const SizedBox.shrink();
         },
       ),
     );
   }
+}
+
+/// Developer utility to type-cast numeric or string to double safely
+double? _castNum(dynamic val) {
+  if (val is num) return val.toDouble();
+  if (val is String) return double.tryParse(val);
+  return null;
 }
