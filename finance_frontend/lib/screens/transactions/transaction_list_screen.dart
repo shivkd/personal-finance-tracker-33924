@@ -37,6 +37,19 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
     final authProvider = Provider.of<AuthProvider>(context);
     final token = authProvider.user?.jwtToken;
 
+    Widget _errorOrEmpty() {
+      if (!txProvider.isLoading && txProvider.transactions.isEmpty) {
+        return const Center(
+          child: Text(
+            "No transactions to show.\n(Check your connection if you expect items.)",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16),
+          ),
+        );
+      }
+      return const SizedBox.shrink();
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Transactions'),
@@ -46,7 +59,7 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
           : RefreshIndicator(
               onRefresh: _initTransactions,
               child: txProvider.transactions.isEmpty
-                  ? const Center(child: Text("No transactions to show."))
+                  ? _errorOrEmpty()
                   : ListView.builder(
                       padding: const EdgeInsets.all(16),
                       itemCount: txProvider.transactions.length,
@@ -76,8 +89,12 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
                           },
                           onDismissed: (_) async {
                             if (token == null) return;
-                            await txProvider.deleteTransaction(tx['id'], token);
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Transaction deleted.")));
+                            final ok = await txProvider.deleteTransaction(tx['id'], token);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(ok ? "Transaction deleted." : "Error deleting transaction.")),
+                              );
+                            }
                           },
                           child: Card(
                             child: ListTile(

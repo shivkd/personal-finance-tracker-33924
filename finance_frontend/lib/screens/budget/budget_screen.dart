@@ -37,6 +37,22 @@ class _BudgetScreenState extends State<BudgetScreen> {
     final budgetProvider = Provider.of<BudgetProvider>(context);
     final authProvider = Provider.of<AuthProvider>(context);
     final token = authProvider.user?.jwtToken;
+
+    // Added _apiErrorOverlay to show main fetch error if budgets failed to load due to API/network issue
+    Widget _apiErrorOverlay() {
+      if (!budgetProvider.isLoading && budgetProvider.budgets.isEmpty) {
+        // This could be either first time or error, ideally have a field for error
+        // We'll show a generic prompt for robustness.
+        return const Center(
+          child: Text(
+            'No budgets yet. Add your first budget!',
+            style: TextStyle(fontSize: 17),
+          ),
+        );
+      }
+      return const SizedBox.shrink();
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Budgets & Goals'),
@@ -45,10 +61,77 @@ class _BudgetScreenState extends State<BudgetScreen> {
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _initBudgets,
-              child: budgetProvider.budgets.isEmpty
-                  ? const Center(child: Text("No budgets yet. Add your first budget!"))
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (budgetProvider.budgets.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 32.0),
+                      child: _apiErrorOverlay(),
+                    ),
+                  if (budgetProvider.budgets.isNotEmpty)
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: budgetProvider.budgets.length,
+                        itemBuilder: (context, idx) {
+                          final b = budgetProvider.budgets[idx];
+                          final double spent = (b['spent'] ?? 0.0) is num
+                              ? (b['spent'] ?? 0.0)
+                              : double.tryParse(b['spent']?.toString() ?? '0.0') ?? 0.0;
+                          final double limit = (b['limit'] ?? 0.0) is num
+                              ? (b['limit'] ?? 0.0)
+                              : double.tryParse(b['limit']?.toString() ?? '0.0') ?? 0.0;
+                          final progress = limit > 0 ? (spent / limit).clamp(0.0, 1.0) : 0.0;
+                          return Card(
+                            child: ListTile(
+                              title: Text(b['category'] ?? 'Budget'),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  LinearPercentIndicator(
+                                    lineHeight: 8,
+                                    percent: progress,
+                                    progressColor: progress >= 1.0 ? Colors.red : Theme.of(context).colorScheme.primary,
+                                    backgroundColor: Colors.grey.shade300,
+                                    animation: true,
+                                    barRadius: const Radius.circular(4),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text("\$${spent.toStringAsFixed(2)} spent of \$${limit.toStringAsFixed(2)}"),
+                                ],
+                              ),
+                              trailing: PopupMenuButton<String>(
+                                onSelected: (value) async {
+                                  if (value == 'edit') {
+                                    _showAddEditDialog(context, b, token);
+                                  } else if (value == 'delete') {
+                                    if (token == null) return;
+                                    final bp = Provider.of<BudgetProvider>(context, listen: false);
+                                    final success = await bp.deleteBudget(b['id'], token);
+                                    if (success && context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Deleted")));
+                                    } else if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error deleting budget.")));
+                                    }
+                                  }
+                                },
+                                itemBuilder: (ctx) => [
+                                  const PopupMenuItem(value: 'edit', child: Text("Edit")),
+                                  const PopupMenuItem(value: 'delete', child: Text("Delete")),
+                                ],
+                                icon: const Icon(Icons.more_vert),
+                              ),
+                              onTap: () {
+                                _showAddEditDialog(context, b, token);
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
                       itemCount: budgetProvider.budgets.length,
                       itemBuilder: (context, idx) {
                         final b = budgetProvider.budgets[idx];

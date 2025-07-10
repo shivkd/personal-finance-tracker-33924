@@ -41,6 +41,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final dashboardProvider = Provider.of<DashboardProvider>(context);
     final notificationProvider = Provider.of<NotificationProvider>(context);
 
+    Widget _errorOrEmptyDashboard() {
+      if (!dashboardProvider.isLoading &&
+          dashboardProvider.balance == 0.0 &&
+          dashboardProvider.recentTransactions.isEmpty &&
+          dashboardProvider.budgetAlerts.isEmpty) {
+        // Could be first time or fetch error; communicate both
+        return Padding(
+          padding: const EdgeInsets.only(top: 48.0),
+          child: Center(
+            child: Text(
+              "Could not load dashboard content.\n(Check connection or try later.)",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.red.shade400, fontSize: 16),
+            ),
+          ),
+        );
+      }
+      return const SizedBox.shrink();
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
@@ -62,6 +82,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   _BalanceCard(balance: dashboardProvider.balance),
                   const SizedBox(height: 24),
+                  _errorOrEmptyDashboard(),
                   if (notificationProvider.notifications.isNotEmpty)
                     _AlertList(notifications: notificationProvider.notifications),
                   Text(
