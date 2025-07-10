@@ -3,8 +3,10 @@ If your Flutter build fails with an error requesting Android NDK version 27.0.12
 
 ACTION REQUIRED: Install Android NDK 27.0.12077973
 
-To resolve the build error do one of the following:
 ---------------------------------------------------------------------------------
+Most developers should use **Android Studio's SDK Manager** to install NDK.
+---------------------------------------------------------------------------------
+
 Method 1: Using Android Studio (Recommended)
 --------------------------------------------
 1. Open Android Studio.
@@ -29,9 +31,20 @@ Method 3: Download Directly from Google (Advanced)
 - Download appropriate package and extract to your Android SDK's ndk directory.
 
 ---------------------------------------------------------------------------------
-CI/Docker NOTES — Automating NDK installation and permissions
+For Local Flutter App Development (Recommended)
 ---------------------------------------------------------------------------------
-If building in CI, Docker, or headless, use this script after the SDK/NDK prerequisites:
+- All steps above install the required NDK version for local builds.
+- Once installed, simply run:
+
+  flutter run
+  flutter build apk
+
+- No Docker or container setup is needed unless you are maintaining CI infrastructure.
+
+---------------------------------------------------------------------------------
+[For Automation/CI/Docker Use Only] — Automating NDK installation and permissions
+---------------------------------------------------------------------------------
+_The following section is for CI/CD engineers or those scripting container builds only._
 
 # Set this path according to your Docker/CI environment:
 export ANDROID_SDK_ROOT=/opt/android-sdk-linux
@@ -47,7 +60,6 @@ chmod -R a+rX $ANDROID_SDK_ROOT
 chown -R $(id -u):$(id -g) $ANDROID_SDK_ROOT
 
 # 4. For Dockerfile — sample excerpt:
-# --------------------------
 # ENV ANDROID_SDK_ROOT=/opt/android-sdk-linux
 # RUN yes | ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --sdk_root=${ANDROID_SDK_ROOT} --install "ndk;27.0.12077973"
 # RUN chmod -R a+rX ${ANDROID_SDK_ROOT} && chown -R root:root ${ANDROID_SDK_ROOT}
@@ -64,6 +76,4 @@ NOTE: If you encounter a build error like "Could not find an option named 'no-so
 If you still encounter errors, update your SDK tools or contact project maintainers with the error details.
 =================================================================================
 
-SUMMARY: This manual step is necessary and not a codebase issue—install the specific NDK if required, then rebuild and run your Flutter app.
-If using CI/Docker, use the scriptable commands above. No source code change is necessary.
-
+SUMMARY: Install Android NDK 27.0.12077973 via Android Studio (preferred) or command line if you encounter a build error. Primary development and builds are **intended to use your local Flutter and Android toolchain**. Docker/CI setup is not needed for day-to-day development.
