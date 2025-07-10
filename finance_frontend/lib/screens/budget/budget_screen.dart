@@ -117,17 +117,18 @@ class _BudgetScreenState extends State<BudgetScreen> {
                                 icon: const Icon(Icons.more_vert),
                                 onSelected: (value) async {
                                   if (value == 'edit') {
+                                    if (!mounted) return;
+                                    if (!mounted) return;
                                     showAddEditDialog(context, b, _cachedToken);
                                   } else if (value == 'delete') {
-                                    // Don't use context after await - fetch a messenger reference first
-                                    final messenger = ScaffoldMessenger.of(context);
+                                    // Move all context-using code after the mounted guard
                                     final result = await onDeleteBudget(b['id'], _cachedToken, context);
-                                    if (mounted) {
-                                      if (result) {
-                                        messenger.showSnackBar(const SnackBar(content: Text("Deleted")));
-                                      } else {
-                                        messenger.showSnackBar(const SnackBar(content: Text("Error deleting budget.")));
-                                      }
+                                    if (!mounted) return;
+                                    final messenger = ScaffoldMessenger.of(context);
+                                    if (result) {
+                                      messenger.showSnackBar(const SnackBar(content: Text("Deleted")));
+                                    } else {
+                                      messenger.showSnackBar(const SnackBar(content: Text("Error deleting budget.")));
                                     }
                                   }
                                 },
