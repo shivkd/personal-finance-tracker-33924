@@ -118,7 +118,8 @@ class _BudgetScreenState extends State<BudgetScreen> {
                                     icon: const Icon(Icons.more_vert),
                                     onSelected: (value) async {
                                       if (value == 'edit') {
-                                        // Guard context usage after async gap per flutter_lints
+                                        // Fix: Do not use context after async gap unless mounted is checked after the gap
+                                        await Future.delayed(Duration.zero);
                                         if (!mounted) return;
                                         showAddEditDialog(context, b, token);
                                       } else if (value == 'delete') {
@@ -230,7 +231,7 @@ class _AddEditBudgetDialogState extends State<AddEditBudgetDialog> {
                 } else {
                   success = await bp.addBudget(payload, widget.token!);
                 }
-                if (!context.mounted) return;
+                if (!mounted) return;
                 if (success) {
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isEdit ? "Saved." : "Budget added.")));
