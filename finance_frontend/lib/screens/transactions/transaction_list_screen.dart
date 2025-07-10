@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/transaction_provider.dart';
-import '../../providers/auth_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'; // <-- Import Supabase
 
 class TransactionListScreen extends StatefulWidget {
@@ -160,7 +159,7 @@ class _TransactionListScreenState extends State<TransactionListScreen> {
 class AddEditTransactionDialog extends StatefulWidget {
   final Map<String, dynamic>? initialData;
   final String? token;
-  const AddEditTransactionDialog({Key? key, this.initialData, required this.token}) : super(key: key);
+  const AddEditTransactionDialog({super.key, this.initialData, required this.token});
 
   @override
   State<AddEditTransactionDialog> createState() => _AddEditTransactionDialogState();

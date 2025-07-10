@@ -170,25 +170,12 @@ class _BudgetScreenState extends State<BudgetScreen> {
   }
 }
 
-  void _showAddEditDialog(BuildContext context, Map<String, dynamic>? b, String? token) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-        child: AddEditBudgetDialog(
-          initialData: b,
-          token: token,
-        ),
-      ),
-    );
-  }
-}
+  // _showAddEditDialog has been removed as it's not referenced.
 
 class AddEditBudgetDialog extends StatefulWidget {
   final Map<String, dynamic>? initialData;
   final String? token;
-  const AddEditBudgetDialog({Key? key, this.initialData, required this.token}) : super(key: key);
+  const AddEditBudgetDialog({super.key, this.initialData, required this.token});
 
   @override
   State<AddEditBudgetDialog> createState() => _AddEditBudgetDialogState();

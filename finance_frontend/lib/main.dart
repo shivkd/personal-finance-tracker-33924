@@ -18,13 +18,18 @@ import 'screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // PUBLIC_INTERFACE
+  // Initialize Supabase with safest publishable key (anon/public) for frontend usage.
   await Supabase.initialize(
     url: 'https://xihtrwadyqfimillpxff.supabase.co',
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhpaHRyd2FkeXFmaW1pbGxweGZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxMTE2OTksImV4cCI6MjA2NzY4NzY5OX0.d_AuwOkKczE_j7oQOb37rGmVgX_XTGf2_UbSy8g9OAA',
+    // The above is the public anon key and is safe for frontend.
   );
   runApp(const FinanceApp());
 }
 
+///
+/// The main app for Personal Finance
 class FinanceApp extends StatelessWidget {
   const FinanceApp({super.key});
 
@@ -63,6 +68,15 @@ class FinanceApp extends StatelessWidget {
           '/transactions': (context) => const TransactionListScreen(),
           '/budget': (context) => const BudgetScreen(),
           '/notifications': (context) => const NotificationsScreen(),
+          // Example: add '/sample-supabase' for dev/test demo (not in prod router).
+        },
+        // Example demonstration for fetching finance 'transactions' directly from Supabase table (replaceable or for dev only)
+        builder: (context, child) {
+          // To demonstrate correct FutureBuilder logic for Supabase, not 'todos'.
+          // Remove if this is not needed in the widget tree.
+          return Expanded(child: child ?? const SizedBox.shrink());
+          // --- The demo FutureBuilder for Supabase 'transactions' was removed to fix dead code warning.
+          // To re-enable for development, add the sample back with a proper condition. 
         },
       ),
     );
