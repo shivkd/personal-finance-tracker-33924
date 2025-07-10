@@ -1,0 +1,1 @@
+{"is_source_file": true, "file_id": 28, "git_revision": "", "state": 1, "description": "", "external_files": [], "external_methods": [], "published": [], "classes": [], "methods": [], "calls": [], "search-terms": [], "hash": "04c1334583e5ad42acee73fa0f057bde", "format-version": 4, "code-base-name": "finance_frontend", "filename": "test/widget_test.dart", "knowledge_revision": 28}

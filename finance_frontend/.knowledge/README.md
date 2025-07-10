@@ -1,0 +1,1 @@
+{"is_source_file": true, "file_id": 26, "git_revision": "", "state": 1, "description": "", "external_files": [], "external_methods": [], "published": [], "classes": [], "methods": [], "calls": [], "search-terms": [], "hash": "617fe9a014326aa70f6aba72e82a011f", "format-version": 4, "code-base-name": "finance_frontend", "filename": "README.md", "knowledge_revision": 27}

@@ -1,0 +1,1 @@
+{"is_source_file": true, "file_id": 29, "git_revision": "", "state": 1, "description": "", "external_files": [], "external_methods": [], "published": [], "classes": [], "methods": [], "calls": [], "search-terms": [], "hash": "a1087fdcd2faca96df556b906515ddf6", "format-version": 4, "code-base-name": "finance_frontend", "filename": "lib/main.dart", "knowledge_revision": 30}
