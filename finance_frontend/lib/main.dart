@@ -72,11 +72,73 @@ class FinanceApp extends StatelessWidget {
         },
         // Example demonstration for fetching finance 'transactions' directly from Supabase table (replaceable or for dev only)
         builder: (context, child) {
-          // To demonstrate correct FutureBuilder logic for Supabase, not 'todos'.
-          // Remove if this is not needed in the widget tree.
-          return Expanded(child: child ?? const SizedBox.shrink());
-          // --- The demo FutureBuilder for Supabase 'transactions' was removed to fix dead code warning.
-          // To re-enable for development, add the sample back with a proper condition. 
+          // This is a developer/test widget for direct Supabase 'transactions' fetch with session-aware auth.
+          // Remove or guard this code for production!
+          bool devMode = false; // set to true to enable the demo below (for dev/test only).
+          if (devMode) {
+            return FutureBuilder<List<Map<String, dynamic>>>(
+              future: (() async {
+                final client = Supabase.instance.client;
+                final session = client.auth.currentSession;
+                // Only query if we have a session/user.
+                if (session != null && session.user != null) {
+                  final response = await client
+                      .from('transactions')
+                      .select('*')
+                      .order('date', ascending: false)
+                      .limit(10);
+                  // Safely cast and validate each item to Map<String, dynamic>
+                  if (response is List) {
+                    return response
+                        .whereType<Map<String, dynamic>>()
+                        .toList();
+                  }
+                }
+                return <Map<String, dynamic>>[];
+              })(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Material(
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return Material(
+                    child: Center(
+                        child: Text(
+                      "Failed to fetch transactions: ${snapshot.error}",
+                      style: const TextStyle(color: Colors.redAccent),
+                    )),
+                  );
+                }
+                final transactions = snapshot.data ?? [];
+                return Material(
+                  child: ListView.builder(
+                    itemCount: transactions.length,
+                    itemBuilder: (ctx, idx) {
+                      final tx = transactions[idx];
+                      final amount = tx['amount'];
+                      return ListTile(
+                        leading: const Icon(Icons.attach_money),
+                        title: Text(tx['description']?.toString() ?? 'Transaction'),
+                        subtitle: Text(tx['date']?.toString() ?? ''),
+                        trailing: Text(
+                          '\$${(amount is num) ? amount.toStringAsFixed(2) : '0.00'}',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: (amount is num && amount < 0)
+                                  ? Colors.red
+                                  : Theme.of(context).colorScheme.primary),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            );
+          }
+          // Production: just render the child as usual app content.
+          return child ?? const SizedBox.shrink();
         },
       ),
     );
