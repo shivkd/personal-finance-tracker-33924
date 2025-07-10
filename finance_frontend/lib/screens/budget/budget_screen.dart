@@ -156,12 +156,14 @@ class _BudgetScreenState extends State<BudgetScreen> {
   Future<void> onDeleteBudget(int? id, String? token, BuildContext context) async {
     if (token == null || id == null) return;
     final bp = Provider.of<BudgetProvider>(context, listen: false);
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
     final success = await bp.deleteBudget(id, token);
-    if (!mounted) return;
+    if (!context.mounted) return;
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Deleted")));
+      messenger.showSnackBar(const SnackBar(content: Text("Deleted")));
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error deleting budget.")));
+      messenger.showSnackBar(const SnackBar(content: Text("Error deleting budget.")));
     }
   }
 
@@ -232,20 +234,18 @@ class _AddEditBudgetDialogState extends State<AddEditBudgetDialog> {
                 };
                 if (widget.token == null) return;
                 bool success;
-                if (isEdit && widget.initialData?['id'] != null) {
-                  success = await bp.editBudget(widget.initialData!['id'], payload, widget.token!);
-                } else {
-                  success = await bp.addBudget(payload, widget.token!);
-                }
-                if (!mounted) return;
+                final navigator = Navigator.of(context);
+                final messenger = ScaffoldMessenger.of(context);
+                success = (isEdit && widget.initialData?['id'] != null)
+                    ? await bp.editBudget(widget.initialData!['id'], payload, widget.token!)
+                    : await bp.addBudget(payload, widget.token!);
+                if (!context.mounted) return;
                 if (success) {
-                  if (!mounted) return;
-                  Navigator.of(context).pop();
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isEdit ? "Saved." : "Budget added.")));
+                  navigator.pop();
+                  if (!context.mounted) return;
+                  messenger.showSnackBar(SnackBar(content: Text(isEdit ? "Saved." : "Budget added.")));
                 } else {
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error saving budget.")));
+                  messenger.showSnackBar(const SnackBar(content: Text("Error saving budget.")));
                 }
               },
               child: Text(isEdit ? "Save Changes" : "Add Budget"),
