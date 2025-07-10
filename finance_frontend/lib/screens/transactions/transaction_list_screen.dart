@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/transaction_provider.dart';
 import '../../providers/auth_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // <-- Import Supabase
 
 class TransactionListScreen extends StatefulWidget {
   const TransactionListScreen({super.key});
@@ -11,136 +12,145 @@ class TransactionListScreen extends StatefulWidget {
 }
 
 class _TransactionListScreenState extends State<TransactionListScreen> {
-  bool _initialized = false;
+  bool initialized = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_initialized) {
-      _initTransactions();
-      _initialized = true;
+    if (!initialized) {
+      initTransactions();
+      initialized = true;
     }
   }
 
-  Future<void> _initTransactions() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  Future<String?> getAccessToken() async {
+    final session = Supabase.instance.client.auth.currentSession;
+    return session?.accessToken;
+  }
+
+  Future<void> initTransactions() async {
     final txProvider = Provider.of<TransactionProvider>(context, listen: false);
-    final token = authProvider.user?.jwtToken;
+    final token = await getAccessToken();
     if (token != null) {
       await txProvider.fetchTransactions(token);
     }
   }
 
+  Widget errorOrEmpty(TransactionProvider txProvider) {
+    if (!txProvider.isLoading && txProvider.transactions.isEmpty) {
+      return const Center(
+        child: Text(
+          "No transactions to show.\n(Check your connection if you expect items.)",
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 16),
+        ),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
   @override
   Widget build(BuildContext context) {
     final txProvider = Provider.of<TransactionProvider>(context);
-    final authProvider = Provider.of<AuthProvider>(context);
-    final token = authProvider.user?.jwtToken;
 
-    Widget _errorOrEmpty() {
-      if (!txProvider.isLoading && txProvider.transactions.isEmpty) {
-        return const Center(
-          child: Text(
-            "No transactions to show.\n(Check your connection if you expect items.)",
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16),
+    return FutureBuilder<String?>(
+      future: getAccessToken(),
+      builder: (context, snapshot) {
+        final token = snapshot.data;
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Transactions'),
           ),
-        );
-      }
-      return const SizedBox.shrink();
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Transactions'),
-      ),
-      body: txProvider.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _initTransactions,
-              child: txProvider.transactions.isEmpty
-                  ? _errorOrEmpty()
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: txProvider.transactions.length,
-                      itemBuilder: (context, idx) {
-                        final tx = txProvider.transactions[idx];
-                        return Dismissible(
-                          key: ValueKey(tx['id']),
-                          direction: DismissDirection.endToStart,
-                          background: Container(
-                            alignment: Alignment.centerRight,
-                            color: Colors.redAccent,
-                            padding: const EdgeInsets.only(right: 30),
-                            child: const Icon(Icons.delete, color: Colors.white, size: 30),
-                          ),
-                          confirmDismiss: (_) async {
-                            return await showDialog(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: const Text("Delete Transaction"),
-                                content: const Text("Are you sure you want to delete this transaction?"),
-                                actions: [
-                                  TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text("Cancel")),
-                                  TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text("Delete")),
-                                ],
+          body: txProvider.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : RefreshIndicator(
+                  onRefresh: initTransactions,
+                  child: txProvider.transactions.isEmpty
+                      ? errorOrEmpty(txProvider)
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: txProvider.transactions.length,
+                          itemBuilder: (context, idx) {
+                            final tx = txProvider.transactions[idx];
+                            return Dismissible(
+                              key: ValueKey(tx['id']),
+                              direction: DismissDirection.endToStart,
+                              background: Container(
+                                alignment: Alignment.centerRight,
+                                color: Colors.redAccent,
+                                padding: const EdgeInsets.only(right: 30),
+                                child: const Icon(Icons.delete, color: Colors.white, size: 30),
+                              ),
+                              confirmDismiss: (_) async {
+                                return await showDialog(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text("Delete Transaction"),
+                                    content: const Text("Are you sure you want to delete this transaction?"),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text("Cancel")),
+                                      TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text("Delete")),
+                                    ],
+                                  ),
+                                );
+                              },
+                              onDismissed: (_) async {
+                                if (token == null) return;
+                                final ok = await txProvider.deleteTransaction(tx['id'], token);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(ok ? "Transaction deleted." : "Error deleting transaction.")),
+                                  );
+                                }
+                              },
+                              child: Card(
+                                child: ListTile(
+                                  leading: CircleAvatar(
+                                    child: Text(
+                                      tx['category'] != null && tx['category'].isNotEmpty
+                                          ? tx['category'][0].toUpperCase()
+                                          : '?',
+                                    ),
+                                  ),
+                                  title: Text(tx['description'] ?? 'Transaction'),
+                                  subtitle: Text(
+                                    tx['date'] != null ? tx['date'].toString() : '',
+                                  ),
+                                  trailing: Text(
+                                    '\$${tx['amount']?.toStringAsFixed(2) ?? '0.00'}',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: (tx['amount'] ?? 0) < 0 ? Colors.red : Theme.of(context).colorScheme.primary,
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    showAddEditDialog(context, tx, token);
+                                  },
+                                ),
                               ),
                             );
                           },
-                          onDismissed: (_) async {
-                            if (token == null) return;
-                            final ok = await txProvider.deleteTransaction(tx['id'], token);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(ok ? "Transaction deleted." : "Error deleting transaction.")),
-                              );
-                            }
-                          },
-                          child: Card(
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                child: Text(
-                                  tx['category'] != null && tx['category'].isNotEmpty
-                                      ? tx['category'][0].toUpperCase()
-                                      : '?',
-                                ),
-                              ),
-                              title: Text(tx['description'] ?? 'Transaction'),
-                              subtitle: Text(
-                                tx['date'] != null ? tx['date'].toString() : '',
-                              ),
-                              trailing: Text(
-                                '\$${tx['amount']?.toStringAsFixed(2) ?? '0.00'}',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: (tx['amount'] ?? 0) < 0 ? Colors.red : Theme.of(context).colorScheme.primary,
-                                ),
-                              ),
-                              onTap: () {
-                                _showAddEditDialog(context, tx, token);
-                              },
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddEditDialog(context, null, token),
-        child: const Icon(Icons.add),
-        tooltip: 'Add Transaction',
-      ),
+                        ),
+                ),
+          floatingActionButton: FloatingActionButton(
+            tooltip: 'Add Transaction',
+            child: const Icon(Icons.add),
+            onPressed: () => showAddEditDialog(context, null, token),
+          ),
+        );
+      },
     );
   }
 
-  void _showAddEditDialog(BuildContext context, Map<String, dynamic>? tx, String? token) {
+  void showAddEditDialog(BuildContext context, Map<String, dynamic>? tx, String? token) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: AddEditTransactionDialog(
-          initialData: tx, token: token,
+          initialData: tx,
+          token: token,
         ),
       ),
     );

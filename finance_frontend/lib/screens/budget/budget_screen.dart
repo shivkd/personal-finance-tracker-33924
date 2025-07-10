@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/budget_provider.dart';
 import '../../providers/auth_provider.dart';
 import 'package:percent_indicator/linear_percent_indicator.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // <-- Import Supabase
 
 class BudgetScreen extends StatefulWidget {
   const BudgetScreen({super.key});
@@ -12,188 +13,162 @@ class BudgetScreen extends StatefulWidget {
 }
 
 class _BudgetScreenState extends State<BudgetScreen> {
-  bool _initialized = false;
+  bool initialized = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_initialized) {
-      _initBudgets();
-      _initialized = true;
+    if (!initialized) {
+      initBudgets();
+      initialized = true;
     }
   }
 
-  Future<void> _initBudgets() async {
+  // Helper to get token because accessToken needs async sometimes with Supabase v2.
+  Future<String?> getAccessToken(AuthProvider provider) async {
+    final session = Supabase.instance.client.auth.currentSession;
+    return session?.accessToken;
+  }
+
+  Future<void> initBudgets() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final budgetProvider = Provider.of<BudgetProvider>(context, listen: false);
-    final token = authProvider.user?.jwtToken;
+    final token = await getAccessToken(authProvider);
     if (token != null) {
       await budgetProvider.fetchBudgets(token);
     }
+  }
+
+  Widget apiErrorOverlay(BudgetProvider budgetProvider) {
+    if (!budgetProvider.isLoading && budgetProvider.budgets.isEmpty) {
+      return const Center(
+        child: Text(
+          'No budgets yet. Add your first budget!',
+          style: TextStyle(fontSize: 17),
+        ),
+      );
+    }
+    return const SizedBox.shrink();
   }
 
   @override
   Widget build(BuildContext context) {
     final budgetProvider = Provider.of<BudgetProvider>(context);
     final authProvider = Provider.of<AuthProvider>(context);
-    final token = authProvider.user?.jwtToken;
 
-    // Added _apiErrorOverlay to show main fetch error if budgets failed to load due to API/network issue
-    Widget _apiErrorOverlay() {
-      if (!budgetProvider.isLoading && budgetProvider.budgets.isEmpty) {
-        // This could be either first time or error, ideally have a field for error
-        // We'll show a generic prompt for robustness.
-        return const Center(
-          child: Text(
-            'No budgets yet. Add your first budget!',
-            style: TextStyle(fontSize: 17),
+    final Future<String?> tokenFuture = getAccessToken(authProvider);
+
+    return FutureBuilder<String?>(
+      future: tokenFuture,
+      builder: (context, snapshot) {
+        final token = snapshot.data;
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Budgets & Goals'),
           ),
-        );
-      }
-      return const SizedBox.shrink();
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Budgets & Goals'),
-      ),
-      body: budgetProvider.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _initBudgets,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (budgetProvider.budgets.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 32.0),
-                      child: _apiErrorOverlay(),
-                    ),
-                  if (budgetProvider.budgets.isNotEmpty)
-                    Expanded(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: budgetProvider.budgets.length,
-                        itemBuilder: (context, idx) {
-                          final b = budgetProvider.budgets[idx];
-                          final double spent = (b['spent'] ?? 0.0) is num
-                              ? (b['spent'] ?? 0.0)
-                              : double.tryParse(b['spent']?.toString() ?? '0.0') ?? 0.0;
-                          final double limit = (b['limit'] ?? 0.0) is num
-                              ? (b['limit'] ?? 0.0)
-                              : double.tryParse(b['limit']?.toString() ?? '0.0') ?? 0.0;
-                          final progress = limit > 0 ? (spent / limit).clamp(0.0, 1.0) : 0.0;
-                          return Card(
-                            child: ListTile(
-                              title: Text(b['category'] ?? 'Budget'),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  LinearPercentIndicator(
-                                    lineHeight: 8,
-                                    percent: progress,
-                                    progressColor: progress >= 1.0 ? Colors.red : Theme.of(context).colorScheme.primary,
-                                    backgroundColor: Colors.grey.shade300,
-                                    animation: true,
-                                    barRadius: const Radius.circular(4),
+          body: budgetProvider.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : RefreshIndicator(
+                  onRefresh: initBudgets,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (budgetProvider.budgets.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 32.0),
+                          child: apiErrorOverlay(budgetProvider),
+                        ),
+                      if (budgetProvider.budgets.isNotEmpty)
+                        Expanded(
+                          child: ListView.builder(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: budgetProvider.budgets.length,
+                            itemBuilder: (context, idx) {
+                              final b = budgetProvider.budgets[idx];
+                              final double spent = (b['spent'] ?? 0.0) is num
+                                  ? (b['spent'] ?? 0.0)
+                                  : double.tryParse(b['spent']?.toString() ?? '0.0') ?? 0.0;
+                              final double limit = (b['limit'] ?? 0.0) is num
+                                  ? (b['limit'] ?? 0.0)
+                                  : double.tryParse(b['limit']?.toString() ?? '0.0') ?? 0.0;
+                              final progress = limit > 0 ? (spent / limit).clamp(0.0, 1.0) : 0.0;
+                              return Card(
+                                child: ListTile(
+                                  title: Text(b['category'] ?? 'Budget'),
+                                  subtitle: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      LinearPercentIndicator(
+                                        lineHeight: 8,
+                                        percent: progress,
+                                        progressColor: progress >= 1.0 ? Colors.red : Theme.of(context).colorScheme.primary,
+                                        backgroundColor: Colors.grey.shade300,
+                                        animation: true,
+                                        barRadius: const Radius.circular(4),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text("\$${spent.toStringAsFixed(2)} spent of \$${limit.toStringAsFixed(2)}"),
+                                    ],
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text("\$${spent.toStringAsFixed(2)} spent of \$${limit.toStringAsFixed(2)}"),
-                                ],
-                              ),
-                              trailing: PopupMenuButton<String>(
-                                onSelected: (value) async {
-                                  if (value == 'edit') {
-                                    _showAddEditDialog(context, b, token);
-                                  } else if (value == 'delete') {
-                                    if (token == null) return;
-                                    final bp = Provider.of<BudgetProvider>(context, listen: false);
-                                    final success = await bp.deleteBudget(b['id'], token);
-                                    if (success && context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Deleted")));
-                                    } else if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error deleting budget.")));
-                                    }
-                                  }
-                                },
-                                itemBuilder: (ctx) => [
-                                  const PopupMenuItem(value: 'edit', child: Text("Edit")),
-                                  const PopupMenuItem(value: 'delete', child: Text("Delete")),
-                                ],
-                                icon: const Icon(Icons.more_vert),
-                              ),
-                              onTap: () {
-                                _showAddEditDialog(context, b, token);
-                              },
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                ],
-              ),
-                      itemCount: budgetProvider.budgets.length,
-                      itemBuilder: (context, idx) {
-                        final b = budgetProvider.budgets[idx];
-                        final double spent = (b['spent'] ?? 0.0) is num
-                            ? (b['spent'] ?? 0.0)
-                            : double.tryParse(b['spent']?.toString() ?? '0.0') ?? 0.0;
-                        final double limit = (b['limit'] ?? 0.0) is num
-                            ? (b['limit'] ?? 0.0)
-                            : double.tryParse(b['limit']?.toString() ?? '0.0') ?? 0.0;
-                        final progress = limit > 0 ? (spent / limit).clamp(0.0, 1.0) : 0.0;
-                        return Card(
-                          child: ListTile(
-                            title: Text(b['category'] ?? 'Budget'),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                LinearPercentIndicator(
-                                  lineHeight: 8,
-                                  percent: progress,
-                                  progressColor: progress >= 1.0 ? Colors.red : Theme.of(context).colorScheme.primary,
-                                  backgroundColor: Colors.grey.shade300,
-                                  animation: true,
-                                  barRadius: const Radius.circular(4),
+                                  trailing: PopupMenuButton<String>(
+                                    itemBuilder: (ctx) => [
+                                      const PopupMenuItem(value: 'edit', child: Text("Edit")),
+                                      const PopupMenuItem(value: 'delete', child: Text("Delete")),
+                                    ],
+                                    icon: const Icon(Icons.more_vert),
+                                    onSelected: (value) async {
+                                      if (value == 'edit') {
+                                        showAddEditDialog(context, b, token);
+                                      } else if (value == 'delete') {
+                                        if (token == null) return;
+                                        final bp = Provider.of<BudgetProvider>(context, listen: false);
+                                        final success = await bp.deleteBudget(b['id'], token);
+                                        if (success && context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Deleted")));
+                                        } else if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error deleting budget.")));
+                                        }
+                                      }
+                                    },
+                                  ),
+                                  onTap: () {
+                                    showAddEditDialog(context, b, token);
+                                  },
                                 ),
-                                const SizedBox(height: 4),
-                                Text("\$${spent.toStringAsFixed(2)} spent of \$${limit.toStringAsFixed(2)}"),
-                              ],
-                            ),
-                            trailing: PopupMenuButton<String>(
-                              onSelected: (value) async {
-                                if (value == 'edit') {
-                                  _showAddEditDialog(context, b, token);
-                                } else if (value == 'delete') {
-                                  if (token == null) return;
-                                  final bp = Provider.of<BudgetProvider>(context, listen: false);
-                                  final success = await bp.deleteBudget(b['id'], token);
-                                  if (success && context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Deleted")));
-                                  }
-                                }
-                              },
-                              itemBuilder: (ctx) => [
-                                const PopupMenuItem(value: 'edit', child: Text("Edit")),
-                                const PopupMenuItem(value: 'delete', child: Text("Delete")),
-                              ],
-                              icon: const Icon(Icons.more_vert),
-                            ),
-                            onTap: () {
-                              _showAddEditDialog(context, b, token);
+                              );
                             },
                           ),
-                        );
-                      },
-                    ),
-            ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddEditDialog(context, null, token),
-        child: const Icon(Icons.add),
-        tooltip: 'Add Budget',
+                        ),
+                    ],
+                  ),
+                ),
+          floatingActionButton: FloatingActionButton(
+            tooltip: 'Add Budget',
+            child: const Icon(Icons.add),
+            onPressed: () async {
+              final token = await tokenFuture;
+              showAddEditDialog(context, null, token);
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  void showAddEditDialog(BuildContext context, Map<String, dynamic>? b, String? token) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: AddEditBudgetDialog(
+          initialData: b,
+          token: token,
+        ),
       ),
     );
   }
+}
 
   void _showAddEditDialog(BuildContext context, Map<String, dynamic>? b, String? token) {
     showModalBottomSheet(
@@ -202,7 +177,8 @@ class _BudgetScreenState extends State<BudgetScreen> {
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: AddEditBudgetDialog(
-          initialData: b, token: token,
+          initialData: b,
+          token: token,
         ),
       ),
     );

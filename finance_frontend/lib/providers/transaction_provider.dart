@@ -12,7 +12,7 @@ class TransactionProvider extends ChangeNotifier {
     notifyListeners();
     try {
       final data = await BackendService.getTransactions(token);
-      transactions = List<Map<String, dynamic>>.from(data ?? []);
+      transactions = List<Map<String, dynamic>>.from(data);
     } catch (_) {
       transactions = [];
     }

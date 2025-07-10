@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/dashboard_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // <-- Import Supabase
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -12,22 +13,21 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  bool _initialized = false;
+  bool initialized = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_initialized) {
-      _initializeDashboard();
-      _initialized = true;
+    if (!initialized) {
+      initializeDashboard();
+      initialized = true;
     }
   }
 
-  Future<void> _initializeDashboard() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  Future<void> initializeDashboard() async {
     final dashboardProvider = Provider.of<DashboardProvider>(context, listen: false);
-
-    final token = authProvider.user?.jwtToken;
+    final session = Supabase.instance.client.auth.currentSession;
+    final token = session?.accessToken;
     if (token != null) {
       await dashboardProvider.fetchDashboardData(token);
       // Set notifications from dashboard alerts
@@ -41,7 +41,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final dashboardProvider = Provider.of<DashboardProvider>(context);
     final notificationProvider = Provider.of<NotificationProvider>(context);
 
-    Widget _errorOrEmptyDashboard() {
+    Widget errorOrEmptyDashboard() {
       if (!dashboardProvider.isLoading &&
           dashboardProvider.balance == 0.0 &&
           dashboardProvider.recentTransactions.isEmpty &&
@@ -76,13 +76,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: dashboardProvider.isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: () => _initializeDashboard(),
+              onRefresh: () => initializeDashboard(),
               child: ListView(
                 padding: const EdgeInsets.all(24),
                 children: [
                   _BalanceCard(balance: dashboardProvider.balance),
                   const SizedBox(height: 24),
-                  _errorOrEmptyDashboard(),
+                  errorOrEmptyDashboard(),
                   if (notificationProvider.notifications.isNotEmpty)
                     _AlertList(notifications: notificationProvider.notifications),
                   Text(

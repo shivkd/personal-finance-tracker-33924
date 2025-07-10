@@ -8,7 +8,8 @@ plugins {
 android {
     namespace = "com.example.finance_frontend"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // Explicitly set NDK version for compatibility (required by request)
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
