@@ -1,0 +1,1 @@
+ /home/kavia/workspace/code-generation/personal-finance-tracker-33924/finance_frontend/.dart_tool/flutter_build/7d587aa7f3858bec57dec3ed59dd3600/native_assets.json: 
