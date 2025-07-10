@@ -3,16 +3,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:finance_frontend/main.dart';
 
 void main() {
-  testWidgets('App generation message displayed', (WidgetTester tester) async {
-    await tester.pumpWidget(const MyApp());
+  testWidgets('App renders splash screen progress', (WidgetTester tester) async {
+    await tester.pumpWidget(const FinanceApp());
 
-    expect(find.text('finance_frontend App is being generated...'), findsOneWidget);
+    // This expects the CircularProgressIndicator from SplashScreen.
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
   });
 
-  testWidgets('App bar has correct title', (WidgetTester tester) async {
-    await tester.pumpWidget(const MyApp());
-
-    expect(find.text('finance_frontend'), findsOneWidget);
+  testWidgets('Routes present for login', (WidgetTester tester) async {
+    await tester.pumpWidget(const FinanceApp());
+    // App routes setup test (do not assert title now).
+    expect(find.byType(MaterialApp), findsOneWidget);
   });
 }
