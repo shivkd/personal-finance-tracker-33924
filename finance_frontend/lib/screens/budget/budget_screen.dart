@@ -14,12 +14,13 @@ class BudgetScreen extends StatefulWidget {
 
 class _BudgetScreenState extends State<BudgetScreen> {
   bool initialized = false;
+  String? _cachedToken; // Cache to avoid rebuilding async
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!initialized) {
-      initBudgets();
+      _initBudgets();
       initialized = true;
     }
   }
@@ -30,11 +31,12 @@ class _BudgetScreenState extends State<BudgetScreen> {
     return session?.accessToken;
   }
 
-  Future<void> initBudgets() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  Future<void> _initBudgets() async {
+    // Previously unused variable `authProvider` removed as per linter warning
     final budgetProvider = Provider.of<BudgetProvider>(context, listen: false);
-    final token = await getAccessToken(authProvider);
+    final token = await getAccessToken(Provider.of<AuthProvider>(context, listen: false));
     if (token != null) {
+      _cachedToken = token;
       await budgetProvider.fetchBudgets(token);
     }
   }
@@ -54,115 +56,113 @@ class _BudgetScreenState extends State<BudgetScreen> {
   @override
   Widget build(BuildContext context) {
     final budgetProvider = Provider.of<BudgetProvider>(context);
-    final authProvider = Provider.of<AuthProvider>(context);
+    // Removed unused authProvider variable
 
-    final Future<String?> tokenFuture = getAccessToken(authProvider);
-
-    return FutureBuilder<String?>(
-      future: tokenFuture,
-      builder: (context, snapshot) {
-        final token = snapshot.data;
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('Budgets & Goals'),
-          ),
-          body: budgetProvider.isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : RefreshIndicator(
-                  onRefresh: initBudgets,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (budgetProvider.budgets.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 32.0),
-                          child: apiErrorOverlay(budgetProvider),
-                        ),
-                      if (budgetProvider.budgets.isNotEmpty)
-                        Expanded(
-                          child: ListView.builder(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: budgetProvider.budgets.length,
-                            itemBuilder: (context, idx) {
-                              final b = budgetProvider.budgets[idx];
-                              final double spent = (b['spent'] ?? 0.0) is num
-                                  ? (b['spent'] ?? 0.0)
-                                  : double.tryParse(b['spent']?.toString() ?? '0.0') ?? 0.0;
-                              final double limit = (b['limit'] ?? 0.0) is num
-                                  ? (b['limit'] ?? 0.0)
-                                  : double.tryParse(b['limit']?.toString() ?? '0.0') ?? 0.0;
-                              final progress = limit > 0 ? (spent / limit).clamp(0.0, 1.0) : 0.0;
-                              return Card(
-                                child: ListTile(
-                                  title: Text(b['category'] ?? 'Budget'),
-                                  subtitle: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      LinearPercentIndicator(
-                                        lineHeight: 8,
-                                        percent: progress,
-                                        progressColor: progress >= 1.0 ? Colors.red : Theme.of(context).colorScheme.primary,
-                                        backgroundColor: Colors.grey.shade300,
-                                        animation: true,
-                                        barRadius: const Radius.circular(4),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text("\$${spent.toStringAsFixed(2)} spent of \$${limit.toStringAsFixed(2)}"),
-                                    ],
+    // Instead of FutureBuilder, compute token up front & refresh as needed
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Budgets & Goals'),
+      ),
+      body: budgetProvider.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: () async {
+                await _initBudgets();
+              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (budgetProvider.budgets.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 32.0),
+                      child: apiErrorOverlay(budgetProvider),
+                    ),
+                  if (budgetProvider.budgets.isNotEmpty)
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: budgetProvider.budgets.length,
+                        itemBuilder: (context, idx) {
+                          final b = budgetProvider.budgets[idx];
+                          final double spent = (b['spent'] ?? 0.0) is num
+                              ? (b['spent'] ?? 0.0)
+                              : double.tryParse(b['spent']?.toString() ?? '0.0') ?? 0.0;
+                          final double limit = (b['limit'] ?? 0.0) is num
+                              ? (b['limit'] ?? 0.0)
+                              : double.tryParse(b['limit']?.toString() ?? '0.0') ?? 0.0;
+                          final progress = limit > 0 ? (spent / limit).clamp(0.0, 1.0) : 0.0;
+                          return Card(
+                            child: ListTile(
+                              title: Text(b['category'] ?? 'Budget'),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  LinearPercentIndicator(
+                                    lineHeight: 8,
+                                    percent: progress,
+                                    progressColor: progress >= 1.0 ? Colors.red : Theme.of(context).colorScheme.primary,
+                                    backgroundColor: Colors.grey.shade300,
+                                    animation: true,
+                                    barRadius: const Radius.circular(4),
                                   ),
-                                  trailing: PopupMenuButton<String>(
-                                    itemBuilder: (ctx) => [
-                                      const PopupMenuItem(value: 'edit', child: Text("Edit")),
-                                      const PopupMenuItem(value: 'delete', child: Text("Delete")),
-                                    ],
-                                    icon: const Icon(Icons.more_vert),
-                                    onSelected: (value) {
-                                      if (value == 'edit') {
-                                        // No async gap, safe to use context
-                                        showAddEditDialog(context, b, token);
-                                      } else if (value == 'delete') {
-                                        // Use a helper method to handle async logic after getting out of this sync callback.
-                                        onDeleteBudget(b['id'], token, context);
+                                  const SizedBox(height: 4),
+                                  Text("\$${spent.toStringAsFixed(2)} spent of \$${limit.toStringAsFixed(2)}"),
+                                ],
+                              ),
+                              trailing: PopupMenuButton<String>(
+                                itemBuilder: (ctx) => [
+                                  const PopupMenuItem(value: 'edit', child: Text("Edit")),
+                                  const PopupMenuItem(value: 'delete', child: Text("Delete")),
+                                ],
+                                icon: const Icon(Icons.more_vert),
+                                onSelected: (value) async {
+                                  if (value == 'edit') {
+                                    showAddEditDialog(context, b, _cachedToken);
+                                  } else if (value == 'delete') {
+                                    // Don't use context after await - fetch a messenger reference first
+                                    final messenger = ScaffoldMessenger.of(context);
+                                    final result = await onDeleteBudget(b['id'], _cachedToken, context);
+                                    if (mounted) {
+                                      if (result) {
+                                        messenger.showSnackBar(const SnackBar(content: Text("Deleted")));
+                                      } else {
+                                        messenger.showSnackBar(const SnackBar(content: Text("Error deleting budget.")));
                                       }
-                                    },
-                                  ),
-                                  onTap: () {
-                                    // No async gap, context is safe to use here.
-                                    showAddEditDialog(context, b, token);
-                                  },
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-          floatingActionButton: FloatingActionButton(
-            tooltip: 'Add Budget',
-            child: const Icon(Icons.add),
-            onPressed: () async {
-              final tokenVal = await tokenFuture; // This is safe; only one await, after which we check mounted
-              if (!mounted) return;
-              showAddEditDialog(context, null, tokenVal);
-            },
-          ),
-        );
-      },
+                                    }
+                                  }
+                                },
+                              ),
+                              onTap: () {
+                                showAddEditDialog(context, b, _cachedToken);
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+      floatingActionButton: FloatingActionButton(
+        tooltip: 'Add Budget',
+        child: const Icon(Icons.add),
+        onPressed: () async {
+          // Only do async before using context
+          final tokenVal = await getAccessToken(Provider.of<AuthProvider>(context, listen: false));
+          if (!mounted) return;
+          showAddEditDialog(context, null, tokenVal);
+          _cachedToken = tokenVal; // update cache
+        },
+      ),
     );
   }
 
-  // Helper for delete operation to handle async gap
-  Future<void> onDeleteBudget(int? id, String? token, BuildContext context) async {
-    if (token == null || id == null) return;
+  /// Called when deleting a budget; returns whether the delete succeeded.
+  Future<bool> onDeleteBudget(int? id, String? token, BuildContext context) async {
+    if (token == null || id == null) return false;
     final bp = Provider.of<BudgetProvider>(context, listen: false);
     final success = await bp.deleteBudget(id, token);
-    if (!mounted) return; // Ensure context is still valid after async
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Deleted")));
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error deleting budget.")));
-    }
+    return success;
   }
 
   void showAddEditDialog(BuildContext context, Map<String, dynamic>? b, String? token) {
@@ -231,27 +231,34 @@ class _AddEditBudgetDialogState extends State<AddEditBudgetDialog> {
                   'limit': double.tryParse(_limitCtrl.text) ?? 0.0,
                 };
                 if (widget.token == null) return;
+
                 bool success;
-                final navigator = Navigator.of(context);
-                final messenger = ScaffoldMessenger.of(context);
-                success = (isEdit && widget.initialData?['id'] != null)
-                    ? await bp.editBudget(widget.initialData!['id'], payload, widget.token!)
-                    : await bp.addBudget(payload, widget.token!);
-                if (!mounted) return;
-                if (success) {
-                  navigator.pop();
-                  if (!mounted) return;
-                  messenger.showSnackBar(SnackBar(content: Text(isEdit ? "Saved." : "Budget added.")));
+                if (isEdit && widget.initialData?['id'] != null) {
+                  success = await bp.editBudget(widget.initialData!['id'], payload, widget.token!);
                 } else {
-                  messenger.showSnackBar(const SnackBar(content: Text("Error saving budget.")));
+                  success = await bp.addBudget(payload, widget.token!);
                 }
+
+                if (!mounted) return;
+                // Use post-frame callback to avoid context across async gap
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    final navigator = Navigator.of(context);
+                    final messenger = ScaffoldMessenger.of(context);
+                    if (success) {
+                      navigator.pop();
+                      messenger.showSnackBar(SnackBar(content: Text(isEdit ? "Saved." : "Budget added.")));
+                    } else {
+                      messenger.showSnackBar(const SnackBar(content: Text("Error saving budget.")));
+                    }
+                  }
+                });
               },
               child: Text(isEdit ? "Save Changes" : "Add Budget"),
             ),
             if (isEdit)
               TextButton(
                 onPressed: () {
-                  // No async gap, safe usage
                   Navigator.of(context).pop();
                 },
                 child: const Text("Cancel"),
