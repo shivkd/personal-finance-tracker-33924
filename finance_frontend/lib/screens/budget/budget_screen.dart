@@ -116,26 +116,18 @@ class _BudgetScreenState extends State<BudgetScreen> {
                                       const PopupMenuItem(value: 'delete', child: Text("Delete")),
                                     ],
                                     icon: const Icon(Icons.more_vert),
-                                    onSelected: (value) async {
+                                    onSelected: (value) {
                                       if (value == 'edit') {
-                                        // Fix: Do not use context after async gap unless mounted is checked after the gap
-                                        await Future.delayed(Duration.zero);
-                                        if (!mounted) return;
+                                        // No async gap, safe to use context
                                         showAddEditDialog(context, b, token);
                                       } else if (value == 'delete') {
-                                        if (token == null) return;
-                                        final bp = Provider.of<BudgetProvider>(context, listen: false);
-                                        final success = await bp.deleteBudget(b['id'], token);
-                                        if (!mounted) return;
-                                        if (success) {
-                                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Deleted")));
-                                        } else {
-                                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error deleting budget.")));
-                                        }
+                                        // Use a helper method to handle async logic after getting out of this sync callback.
+                                        onDeleteBudget(b['id'], token, context);
                                       }
                                     },
                                   ),
                                   onTap: () {
+                                    // No async gap, context is safe to use here.
                                     showAddEditDialog(context, b, token);
                                   },
                                 ),
@@ -150,13 +142,27 @@ class _BudgetScreenState extends State<BudgetScreen> {
             tooltip: 'Add Budget',
             child: const Icon(Icons.add),
             onPressed: () async {
-              final token = await tokenFuture;
-              showAddEditDialog(context, null, token);
+              final tokenVal = await tokenFuture; // This is safe; only one await, after which we check mounted
+              if (!mounted) return;
+              showAddEditDialog(context, null, tokenVal);
             },
           ),
         );
       },
     );
+  }
+
+  // Helper for delete operation to handle async gap
+  Future<void> onDeleteBudget(int? id, String? token, BuildContext context) async {
+    if (token == null || id == null) return;
+    final bp = Provider.of<BudgetProvider>(context, listen: false);
+    final success = await bp.deleteBudget(id, token);
+    if (!mounted) return;
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Deleted")));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error deleting budget.")));
+    }
   }
 
   void showAddEditDialog(BuildContext context, Map<String, dynamic>? b, String? token) {
@@ -174,7 +180,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
   }
 }
 
-  // _showAddEditDialog has been removed as it's not referenced.
+// _showAddEditDialog has been removed as it's not referenced.
 
 class AddEditBudgetDialog extends StatefulWidget {
   final Map<String, dynamic>? initialData;
@@ -233,9 +239,12 @@ class _AddEditBudgetDialogState extends State<AddEditBudgetDialog> {
                 }
                 if (!mounted) return;
                 if (success) {
+                  if (!mounted) return;
                   Navigator.of(context).pop();
+                  if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isEdit ? "Saved." : "Budget added.")));
                 } else {
+                  if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error saving budget.")));
                 }
               },
@@ -243,7 +252,10 @@ class _AddEditBudgetDialogState extends State<AddEditBudgetDialog> {
             ),
             if (isEdit)
               TextButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () {
+                  // No async gap, safe usage
+                  Navigator.of(context).pop();
+                },
                 child: const Text("Cancel"),
               ),
           ],
