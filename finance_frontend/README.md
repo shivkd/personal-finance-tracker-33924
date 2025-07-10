@@ -17,6 +17,12 @@ This project is designed to be developed and built **locally** with your own Flu
   **Xcode** (for iOS, on macOS only)
 - Device or emulator (Android/iOS) for testing
 
+:point_right: **IMPORTANT:**  
+See [`README_NDK_NOTE.txt`](README_NDK_NOTE.txt) for essential info on Android NDK version requirements and native *local* SDK path issues.  
+Make sure your **`android/local.properties`** contains the correct `sdk.dir` for your machine:
+- Linux: `sdk.dir=/home/<username>/Android/Sdk`
+- Windows: `sdk.dir=C:\\Users\\<username>\\AppData\\Local\\Android\\Sdk`
+
 > **TIP:** The official [Flutter Install Guide](https://docs.flutter.dev/get-started/install) covers Windows, macOS, and Linux with common troubleshooting.
 
 ---
@@ -42,11 +48,9 @@ This project is designed to be developed and built **locally** with your own Flu
 
 4. **Android NDK Requirement**
 
-   If you see a build failure mentioning:
-   ```
-   NDK version 27.0.12077973 required
-   ```
-   _Follow instructions in_ `README_NDK_NOTE.txt` _in this directory._
+   - If your build fails with any NDK version errors, or "NDK version 27.0.12077973 required",  
+     _Follow detailed troubleshooting & install steps in_ [`README_NDK_NOTE.txt`](README_NDK_NOTE.txt).
+   - Double check your local.properties points to your **actual** Android SDK location, not the Docker/CI default.
 
 ---
 
