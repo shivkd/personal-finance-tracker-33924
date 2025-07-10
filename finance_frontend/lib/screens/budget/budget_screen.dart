@@ -32,12 +32,15 @@ class _BudgetScreenState extends State<BudgetScreen> {
   }
 
   Future<void> _initBudgets() async {
-    // Previously unused variable `authProvider` removed as per linter warning
     final budgetProvider = Provider.of<BudgetProvider>(context, listen: false);
     final token = await getAccessToken(Provider.of<AuthProvider>(context, listen: false));
+    if (!mounted) return;
     if (token != null) {
-      _cachedToken = token;
       await budgetProvider.fetchBudgets(token);
+      if (!mounted) return;
+      setState(() {
+        _cachedToken = token;
+      });
     }
   }
 
@@ -56,9 +59,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
   @override
   Widget build(BuildContext context) {
     final budgetProvider = Provider.of<BudgetProvider>(context);
-    // Removed unused authProvider variable
 
-    // Instead of FutureBuilder, compute token up front & refresh as needed
     return Scaffold(
       appBar: AppBar(
         title: const Text('Budgets & Goals'),
@@ -118,10 +119,8 @@ class _BudgetScreenState extends State<BudgetScreen> {
                                 onSelected: (value) async {
                                   if (value == 'edit') {
                                     if (!mounted) return;
-                                    if (!mounted) return;
                                     showAddEditDialog(context, b, _cachedToken);
                                   } else if (value == 'delete') {
-                                    // Move all context-using code after the mounted guard
                                     final result = await onDeleteBudget(b['id'], _cachedToken, context);
                                     if (!mounted) return;
                                     final messenger = ScaffoldMessenger.of(context);
@@ -148,11 +147,12 @@ class _BudgetScreenState extends State<BudgetScreen> {
         tooltip: 'Add Budget',
         child: const Icon(Icons.add),
         onPressed: () async {
-          // Only do async before using context
           final tokenVal = await getAccessToken(Provider.of<AuthProvider>(context, listen: false));
           if (!mounted) return;
           showAddEditDialog(context, null, tokenVal);
-          _cachedToken = tokenVal; // update cache
+          setState(() {
+            _cachedToken = tokenVal;
+          });
         },
       ),
     );
@@ -241,7 +241,6 @@ class _AddEditBudgetDialogState extends State<AddEditBudgetDialog> {
                 }
 
                 if (!mounted) return;
-                // Use post-frame callback to avoid context across async gap
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (mounted) {
                     final navigator = Navigator.of(context);

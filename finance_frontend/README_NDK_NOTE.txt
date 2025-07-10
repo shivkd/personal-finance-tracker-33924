@@ -29,17 +29,41 @@ Method 3: Download Directly from Google (Advanced)
 - Download appropriate package and extract to your Android SDK's ndk directory.
 
 ---------------------------------------------------------------------------------
-Once NDK is installed, re-run the build in your project directory:
+CI/Docker NOTES — Automating NDK installation and permissions
+---------------------------------------------------------------------------------
+If building in CI, Docker, or headless, use this script after the SDK/NDK prerequisites:
 
-$ cd personal-finance-tracker-33924/finance_frontend
-$ flutter clean
-$ flutter pub get
-$ flutter build apk           (for Android release)
-$ flutter run                 (to launch on attached emulator or device)
+# Set this path according to your Docker/CI environment:
+export ANDROID_SDK_ROOT=/opt/android-sdk-linux
 
-NOTE: If you encounter a build error like "Could not find an option named 'no-sound-null-safety'", remove the "--no-sound-null-safety" flag from any scripts or run commands, as it is deprecated in recent Flutter versions.
+# 1. Install the required NDK:
+yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT --install "ndk;27.0.12077973"
 
-If you still encounter errors, update your SDK tools or reach out with the error details.
+# 2. Verify install (should list 27.0.12077973):
+ls -l $ANDROID_SDK_ROOT/ndk/
+
+# 3. (Important) Ensure SDK dir is readable (needed for CI/runner/docker):
+chmod -R a+rX $ANDROID_SDK_ROOT
+chown -R $(id -u):$(id -g) $ANDROID_SDK_ROOT
+
+# 4. For Dockerfile — sample excerpt:
+# --------------------------
+# ENV ANDROID_SDK_ROOT=/opt/android-sdk-linux
+# RUN yes | ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --sdk_root=${ANDROID_SDK_ROOT} --install "ndk;27.0.12077973"
+# RUN chmod -R a+rX ${ANDROID_SDK_ROOT} && chown -R root:root ${ANDROID_SDK_ROOT}
+
+# 5. Then run your Gradle/Flutter build:
+flutter build apk
+flutter run
+
+# If your app's android/app/build.gradle(.kts) file specifies an ndkVersion, you may remove/comment the ndkVersion assignment to allow the build to use any available installed NDK version.
+# In your project, build.gradle.kts does NOT pin ndkVersion; no code change is needed.
+
+NOTE: If you encounter a build error like "Could not find an option named 'no-sound-null-safety'", remove the "--no-sound-null-safety" flag from run scripts/commands, as it is deprecated in recent Flutter versions.
+
+If you still encounter errors, update your SDK tools or contact project maintainers with the error details.
 =================================================================================
 
-SUMMARY: This manual step is necessary and not a codebase issue—install the specific NDK, then rebuild and run your Flutter app.
+SUMMARY: This manual step is necessary and not a codebase issue—install the specific NDK if required, then rebuild and run your Flutter app.
+If using CI/Docker, use the scriptable commands above. No source code change is necessary.
+
