@@ -37,6 +37,8 @@ $ flutter pub get
 $ flutter build apk           (for Android release)
 $ flutter run                 (to launch on attached emulator or device)
 
+NOTE: If you encounter a build error like "Could not find an option named 'no-sound-null-safety'", remove the "--no-sound-null-safety" flag from any scripts or run commands, as it is deprecated in recent Flutter versions.
+
 If you still encounter errors, update your SDK tools or reach out with the error details.
 =================================================================================
 

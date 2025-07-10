@@ -156,14 +156,12 @@ class _BudgetScreenState extends State<BudgetScreen> {
   Future<void> onDeleteBudget(int? id, String? token, BuildContext context) async {
     if (token == null || id == null) return;
     final bp = Provider.of<BudgetProvider>(context, listen: false);
-    final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
     final success = await bp.deleteBudget(id, token);
-    if (!context.mounted) return;
+    if (!mounted) return; // Ensure context is still valid after async
     if (success) {
-      messenger.showSnackBar(const SnackBar(content: Text("Deleted")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Deleted")));
     } else {
-      messenger.showSnackBar(const SnackBar(content: Text("Error deleting budget.")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error deleting budget.")));
     }
   }
 
@@ -239,10 +237,10 @@ class _AddEditBudgetDialogState extends State<AddEditBudgetDialog> {
                 success = (isEdit && widget.initialData?['id'] != null)
                     ? await bp.editBudget(widget.initialData!['id'], payload, widget.token!)
                     : await bp.addBudget(payload, widget.token!);
-                if (!context.mounted) return;
+                if (!mounted) return;
                 if (success) {
                   navigator.pop();
-                  if (!context.mounted) return;
+                  if (!mounted) return;
                   messenger.showSnackBar(SnackBar(content: Text(isEdit ? "Saved." : "Budget added.")));
                 } else {
                   messenger.showSnackBar(const SnackBar(content: Text("Error saving budget.")));
