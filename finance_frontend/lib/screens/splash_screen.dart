@@ -18,10 +18,13 @@ class _SplashScreenState extends State<SplashScreen> {
 
   void _checkAuth() async {
     await Future.delayed(const Duration(seconds: 1));
+    if (!mounted) return;
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (authProvider.isLoggedIn()) {
+      if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/dashboard');
     } else {
+      if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/login');
     }
   }

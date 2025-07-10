@@ -30,6 +30,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (token != null) {
       await dashboardProvider.fetchDashboardData(token);
       // Set notifications from dashboard alerts
+      if (!mounted) return;
       final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
       notificationProvider.setNotifications(dashboardProvider.budgetAlerts);
     }

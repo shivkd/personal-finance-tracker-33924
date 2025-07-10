@@ -118,14 +118,17 @@ class _BudgetScreenState extends State<BudgetScreen> {
                                     icon: const Icon(Icons.more_vert),
                                     onSelected: (value) async {
                                       if (value == 'edit') {
+                                        // Guard context usage after async gap per flutter_lints
+                                        if (!mounted) return;
                                         showAddEditDialog(context, b, token);
                                       } else if (value == 'delete') {
                                         if (token == null) return;
                                         final bp = Provider.of<BudgetProvider>(context, listen: false);
                                         final success = await bp.deleteBudget(b['id'], token);
-                                        if (success && context.mounted) {
+                                        if (!mounted) return;
+                                        if (success) {
                                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Deleted")));
-                                        } else if (context.mounted) {
+                                        } else {
                                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Error deleting budget.")));
                                         }
                                       }
