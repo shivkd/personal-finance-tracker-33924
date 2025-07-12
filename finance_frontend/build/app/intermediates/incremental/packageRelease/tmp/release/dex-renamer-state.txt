@@ -1,0 +1,4 @@
+#Sat Jul 12 20:55:38 UTC 2025
+base.0=/home/kavia/workspace/code-generation/personal-finance-tracker-33924/finance_frontend/build/app/intermediates/dex/release/minifyReleaseWithR8/classes.dex
+renamed.0=classes.dex
+path.0=classes.dex
